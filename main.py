@@ -8,23 +8,24 @@ import binascii
 
 ICMP_ECHO_REQUEST = 8
 
-def checksum(string):
+def checksum(source: bytes):
     csum = 0
-    countTo = (len(string) // 2) * 2
+    countTo = (len(source) // 2) * 2
     count = 0
+
     while count < countTo:
-        thisVal = ord(string[count+1]) * 256 + ord(string[count])
-        csum = csum + thisVal
-        csum = csum & 0xffffffff
-        count = count + 2
-    if countTo < len(string):
-        csum = csum + ord(string[len(string) - 1])
-        csum = csum & 0xffffffff
+        thisVal = source[count+1] * 256 + source[count]
+        csum = (csum + thisVal) & 0xffffffff
+        count += 2
+
+    if countTo < len(source):
+        csum = (csum + source[-1]) & 0xffffffff
+
     csum = (csum >> 16) + (csum & 0xffff)
-    csum = csum + (csum >> 16)
-    answer = ~csum
-    answer = answer & 0xffff
-    answer = answer >> 8 | (answer << 8 & 0xff00)
+    csum += (csum >> 16)
+    answer = ~csum & 0xffff
+    # swap bytes
+    answer = (answer >> 8) | ((answer << 8) & 0xff00)
     return answer
 
 def receiveOnePing(mySocket, ID, timeout, destAddr):
@@ -67,7 +68,7 @@ def sendOnePing(mySocket, destAddr, ID):
     header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
     data = struct.pack("d", time.time())
     # Calculate the checksum on the data and the dummy header.
-    myChecksum = checksum(str(header + data))
+    myChecksum = checksum(header + data)
     # Get the right checksum, and put in the header
     if sys.platform == 'darwin':
         myChecksum = htons(myChecksum) & 0xffff
@@ -96,4 +97,8 @@ def ping(host, timeout=1):
         time.sleep(1)
 
 if __name__ == "__main__":
-    ping("127.0.0.1")
+    # ping("127.0.0.1")           #Test (localhost)
+    # ping("www.berkeley.edu")    #North America
+    # ping("www.ripe.net")        #Europe
+    # ping("www.keio.ac.jp")      #Asia (Japan)
+    ping("www.ufrj.br")          #South America (Brazil)
